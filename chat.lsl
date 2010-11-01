@@ -35,10 +35,11 @@ default {
 
     listen(integer channel, string name, key id, string msg) {
         if ( id == CONTROL_KEY || id == MASTER_KEY ) return;
-        list d = llCSV2List(name);
+        list d = llParseStringKeepNulls(msg, [","], []);
         string location = llList2String(d,0);
         string fname    = llList2String(d,1);
-        queue += [llEscapeURL(location) + ">" + llEscapeURL(fname) + ">" + escape(msg)];
+        string message  = llDumpList2String(llList2List(d, 2, -1), ",");
+        queue += [llEscapeURL(location) + ">" + llEscapeURL(fname) + ">" + escape(message)];
     }
 
     timer() {

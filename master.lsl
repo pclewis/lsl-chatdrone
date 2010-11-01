@@ -5,10 +5,9 @@ integer DRONE_CHANNEL   = -12610670; // channel to init drones on
 string  CHAT_DRONE      = "chat drone"; // name of chat drones
 
 float   PING_CHECK      = 30.0;
-integer PING_TIMEOUT    = 60;
 
 list    tracked_agents  = [];
-list    pings           = [];
+list    tracked_objects = [];
 
 list    rez_queue       = [];
 key     rez_waiting     = NULL_KEY;
@@ -53,17 +52,16 @@ default {
     }
 
     timer() {
-        integer len     = llGetListLength(pings);
-        integer i       = 0;
-        integer timeout = llGetUnixTime() - PING_TIMEOUT;
-        for ( i = 0; i < len; ++i ) {
-            if ( llList2Integer(pings, i) < timeout ) {
-                llOwnerSay( llList2String(tracked_agents,i) + " timed out" );
-                llRegionSay( CHAT_CHANNEL, "kill" + llList2String(tracked_agents,i) );
-                tracked_agents  = llDeleteSubList( tracked_agents, i, i );
-                pings           = llDeleteSubList( pings, i, i );
-                --i;
-                --len;
+        integer i = llGetListLength(tracked_objects);
+        while (i--) {
+            key k = llList2Key(tracked_objects, i);
+            if ( k != NULL_KEY ) {
+                if ( llKey2Name(k) == "" ) {
+                    llOwnerSay( llList2String(tracked_agents,i) + " gone" );
+                    llRegionSay( CHAT_CHANNEL, "kill" + llList2String(tracked_agents,i) );
+                    tracked_agents = llDeleteSubList(tracked_agents, i, i);
+                    tracked_objects = llDeleteSubList(tracked_objects, i, i);
+                }
             }
         }
     }
@@ -72,26 +70,16 @@ default {
         if ( llGetOwnerKey(id) != llGetOwner() )
             return;
 
-        if ( name == "PING" ) {
-            integer i = llListFindList( tracked_agents, [(key)msg] );
-            if ( i == -1 )
-                return;
-            pings = llListReplaceList( pings, [llGetUnixTime()], i, i );
-            return;
-        }
-
-        if ( name == "GET" ) {
+        if ( msg == "GET" ) {
+            integer i = llListFindList(tracked_agents, (list)rez_waiting);
+            if (i == -1) {
+                llInstantMessage(llGetOwner(), "agent not in list?? [" + (string)rez_waiting + "] [" +
+                                 llDumpList2String(tracked_agents, ",") + "]");
+                llSetScriptState(llGetScriptName(), 0);
+            }
+            tracked_objects = llListReplaceList(tracked_objects, (list)id, i, i);
             llSay(DRONE_CHANNEL, (string)rez_waiting);
             rez(NULL_KEY);
-            return;
-        }
-
-        if ( name == "REMOVE" ) {
-            integer i = llListFindList( tracked_agents, [(key)msg] );
-            if ( i == -1 )
-                return;
-            tracked_agents  = llDeleteSubList( tracked_agents, i, i );
-            pings           = llDeleteSubList( pings, i, i );
             return;
         }
 
@@ -102,7 +90,7 @@ default {
             if ( is_key(k) ) {
                 if ( llListFindList(tracked_agents, [k]) == -1 ) {
                     tracked_agents += k;
-                    pings += [llGetUnixTime()];
+                    tracked_objects += NULL_KEY;
                     rez(k);
                 }
             }

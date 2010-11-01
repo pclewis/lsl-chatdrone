@@ -1,9 +1,9 @@
 integer IM_CHANNEL      = -12610699; // channel to request IMs on
 integer NUM_SLAVES      = 10;
-integer PING            = 10;
 integer cur_slave       = 0;
 integer our_channel     = 0;
 key     master_id       = NULL_KEY;
+integer ims_sent        = 0;
 
 default {
     state_entry() {
@@ -53,7 +53,6 @@ state tard {
 state active {
     state_entry() {
         llListen(our_channel, "", master_id, "" );
-        llSetTimerEvent(PING);
         llOwnerSay("active");
     }
 
@@ -61,19 +60,16 @@ state active {
         llResetScript();
     }
 
-    timer() {
-        llSetObjectName("ping");
-        llRegionSay(IM_CHANNEL, (string)our_channel);
-    }
-
     listen(integer channel, string name, key id, string msg) {
         if ( name == "reset" && msg == "reset" ) llResetScript();
         if ( ++cur_slave >= NUM_SLAVES ) cur_slave = 0;
-        integer i = llSubStringIndex(msg, ":");
-        string fname = llDeleteSubString(msg, i, -1 );
-        msg  = llDeleteSubString(msg, 0, i+1 );
+        list l = llParseStringKeepNulls(msg, [":"], []);
+        key targ = llList2String(l, 0);
+        string fname = llList2String(l, 1);
+        msg = llDumpList2String(llList2List(l, 2, -1), ":");
         llSetObjectName(fname);
-        llMessageLinked( LINK_SET, cur_slave, msg, (key)name );
+        llMessageLinked( LINK_SET, cur_slave, msg, targ );
+        llSetText((string)(++ims_sent), <1,1,1>, 1.0);
     }
 
 }
